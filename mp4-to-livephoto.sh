@@ -87,10 +87,18 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         -o|--output)
+            if [ -z "$2" ]; then
+                print_error "Option -o/--output requires a directory path"
+                exit 1
+            fi
             OUTPUT_DIR="$2"
             shift 2
             ;;
         -q|--quality)
+            if [ -z "$2" ]; then
+                print_error "Option -q/--quality requires a value (1-100)"
+                exit 1
+            fi
             HEIC_QUALITY="$2"
             shift 2
             ;;
@@ -134,6 +142,17 @@ fi
 # Check dependencies
 check_dependencies
 
+# Validate quality parameter
+if ! [[ "$HEIC_QUALITY" =~ ^[0-9]+$ ]]; then
+    print_error "Quality must be a number (1-100), got: $HEIC_QUALITY"
+    exit 1
+fi
+
+if [ "$HEIC_QUALITY" -lt 1 ] || [ "$HEIC_QUALITY" -gt 100 ]; then
+    print_error "Quality must be between 1 and 100, got: $HEIC_QUALITY"
+    exit 1
+fi
+
 # Get absolute path of input file
 INPUT_FILE=$(cd "$(dirname "$INPUT_FILE")" && pwd)/$(basename "$INPUT_FILE")
 
@@ -141,6 +160,9 @@ INPUT_FILE=$(cd "$(dirname "$INPUT_FILE")" && pwd)/$(basename "$INPUT_FILE")
 if [ -z "$OUTPUT_NAME" ]; then
     OUTPUT_NAME=$(basename "$INPUT_FILE" | sed 's/\.[^.]*$//')
 fi
+
+# Expand tilde in OUTPUT_DIR
+OUTPUT_DIR="${OUTPUT_DIR/#\~/$HOME}"
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
@@ -152,29 +174,24 @@ print_info "Output directory: $OUTPUT_DIR"
 
 # Temporary directory for intermediate files
 TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
-
-# Step 1: Extract first frame as JPEG (intermediate format)
-print_info "Extracting first frame from video..."
-TEMP_JPG="$TEMP_DIR/${OUTPUT_NAME}.jpg"
-ffmpeg -i "$INPUT_FILE" -vframes 1 -q:v 2 "$TEMP_JPG" -y &> /dev/null
-
-if [ ! -f "$TEMP_JPG" ]; then
-    print_error "Failed to extract frame from video"
-    exit 1
+if [ "$KEEP_TEMP" = false ]; then
+    trap "rm -rf $TEMP_DIR" EXIT
+else
+    print_info "Temporary files will be kept in: $TEMP_DIR"
 fi
 
-# Step 2: Convert JPEG to HEIC
-print_info "Converting to HEIC format..."
-OUTPUT_HEIC="$OUTPUT_DIR/${OUTPUT_NAME}.HEIC"
+# Step 1: Extract first frame as JPEG
+print_info "Extracting first frame from video..."
+OUTPUT_JPG="$OUTPUT_DIR/${OUTPUT_NAME}.JPG"
+# Use quality parameter: lower q:v values mean higher quality (1-31 scale)
+# Map user quality (1-100) to ffmpeg quality (31-1)
+JPEG_QUALITY=$(( (100 - HEIC_QUALITY) * 31 / 100 + 1 ))
+if [ $JPEG_QUALITY -lt 1 ]; then JPEG_QUALITY=1; fi
+if [ $JPEG_QUALITY -gt 31 ]; then JPEG_QUALITY=31; fi
+ffmpeg -i "$INPUT_FILE" -vframes 1 -q:v $JPEG_QUALITY "$OUTPUT_JPG" -y &> /dev/null
 
-# Use ffmpeg to convert to HEIC with high quality
-# Note: for hevc_videotoolbox, lower q:v values mean higher quality
-FFMPEG_QUALITY=$((100 - HEIC_QUALITY))
-ffmpeg -i "$TEMP_JPG" -c:v hevc_videotoolbox -q:v $FFMPEG_QUALITY -tag:v hvc1 "$OUTPUT_HEIC" -y &> /dev/null
-
-if [ ! -f "$OUTPUT_HEIC" ]; then
-    print_error "Failed to convert to HEIC format"
+if [ ! -f "$OUTPUT_JPG" ]; then
+    print_error "Failed to extract frame from video"
     exit 1
 fi
 
@@ -183,38 +200,39 @@ print_info "Converting to MOV format..."
 OUTPUT_MOV="$OUTPUT_DIR/${OUTPUT_NAME}.MOV"
 
 # Copy video and audio streams to MOV container
-ffmpeg -i "$INPUT_FILE" -c:v copy -c:a copy -f mov "$OUTPUT_MOV" -y &> /dev/null
+# Use -map 0:v to copy video, -map 0:a? to optionally copy audio if present
+ffmpeg -i "$INPUT_FILE" -map 0:v -map 0:a? -c:v copy -c:a copy -f mov "$OUTPUT_MOV" -y &> /dev/null
 
 if [ ! -f "$OUTPUT_MOV" ]; then
     print_error "Failed to convert to MOV format"
     exit 1
 fi
 
-# Step 4: Generate UUID for pairing
+# Step 3: Generate UUID for pairing
 print_info "Adding metadata for Live Photo pairing..."
 UUID=$(uuidgen)
 
-# Add metadata to HEIC (image)
+# Add metadata to JPG (image)
+# Use Keys: prefix for QuickTime metadata keys
 exiftool -overwrite_original \
-    -MediaGroupUUID="$UUID" \
-    -ContentIdentifier="$UUID" \
-    "$OUTPUT_HEIC" &> /dev/null
+    "-Keys:ContentIdentifier=$UUID" \
+    "$OUTPUT_JPG" &> /dev/null
 
 # Add metadata to MOV (video)
 exiftool -overwrite_original \
-    -ContentIdentifier="$UUID" \
-    -MediaGroupUUID="$UUID" \
+    "-Keys:ContentIdentifier=$UUID" \
+    "-Keys:StillImageTime=0" \
     "$OUTPUT_MOV" &> /dev/null
 
 # Set file creation and modification times to be the same
-touch "$OUTPUT_HEIC" "$OUTPUT_MOV" 2>/dev/null || true
+touch "$OUTPUT_JPG" "$OUTPUT_MOV" 2>/dev/null || true
 
 print_info "Success! Live Photo created:"
-echo "  Image: $OUTPUT_HEIC"
+echo "  Image: $OUTPUT_JPG"
 echo "  Video: $OUTPUT_MOV"
 echo ""
 print_info "To import to iPhone:"
-echo "  1. AirDrop: Select both files (HEIC + MOV) and AirDrop to iPhone"
+echo "  1. AirDrop: Select both files (JPG + MOV) and AirDrop to iPhone"
 echo "  2. iCloud Photos: Copy both files to iCloud Photos folder"
 echo "  3. Finder: Connect iPhone via USB and drag both files to Photos"
 echo ""
