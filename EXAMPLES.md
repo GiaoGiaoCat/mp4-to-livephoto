@@ -1,6 +1,4 @@
-# 使用示例 / Usage Examples
-
-## 中文示例
+# 使用示例
 
 ### 示例 1: 最简单的使用方式
 
@@ -65,76 +63,7 @@ ffmpeg -i long_video.mp4 -t 3 -c copy short_video.mp4
 ./mp4-to-livephoto.sh short_video.mp4
 ```
 
----
-
-## English Examples
-
-### Example 1: Simplest Usage
-
-If you have a video file `vacation.mp4`:
-
-```bash
-./mp4-to-livephoto.sh vacation.mp4
-```
-
-Output:
-```
-[INFO] Starting conversion...
-[INFO] Input file: /path/to/vacation.mp4
-[INFO] Output name: vacation
-[INFO] Output directory: ./LivePhotos
-[INFO] Extracting first frame from video...
-[INFO] Converting to HEIC format...
-[INFO] Converting to MOV format...
-[INFO] Adding metadata for Live Photo pairing...
-[INFO] Success! Live Photo created:
-  Image: ./LivePhotos/vacation.HEIC
-  Video: ./LivePhotos/vacation.MOV
-```
-
-### Example 2: Batch Convert Multiple Videos
-
-Create a batch script `batch_convert.sh`:
-
-```bash
-#!/bin/bash
-for video in *.mp4; do
-    echo "Converting $video..."
-    ./mp4-to-livephoto.sh "$video"
-done
-```
-
-Run:
-```bash
-chmod +x batch_convert.sh
-./batch_convert.sh
-```
-
-### Example 3: Custom Output Location and Quality
-
-```bash
-# Output to specific directory with high quality
-./mp4-to-livephoto.sh -o ~/Desktop/MyLivePhotos -q 98 myvideo.mp4
-
-# Specify output filename
-./mp4-to-livephoto.sh -o ~/Desktop/MyLivePhotos myvideo.mp4 summer_2024
-```
-
-### Example 4: Preprocessing with Video Editor
-
-If you want to convert only the first 3 seconds (standard Live Photo length):
-
-```bash
-# Use ffmpeg to trim video first
-ffmpeg -i long_video.mp4 -t 3 -c copy short_video.mp4
-
-# Then convert
-./mp4-to-livephoto.sh short_video.mp4
-```
-
----
-
-## 常见工作流程 / Common Workflows
+## 常见工作流程
 
 ### 工作流程 1: 从 iPhone 拍摄的视频创建实况照片
 
@@ -151,24 +80,7 @@ ffmpeg -i long_video.mp4 -t 3 -c copy short_video.mp4
 3. 运行转换脚本
 4. 传输到 iPhone
 
-### Workflow 1: Create Live Photo from iPhone Video
-
-1. Transfer iPhone video to Mac
-2. (Optional) Trim to 3 seconds using QuickTime Player or iMovie
-3. Export as MP4 format
-4. Run conversion script
-5. Use AirDrop to transfer back to iPhone
-
-### Workflow 2: Create Live Photo from Social Media Video
-
-1. Download video (MP4 format)
-2. Trim to appropriate length if needed
-3. Run conversion script
-4. Transfer to iPhone
-
----
-
-## 故障排除 / Troubleshooting
+## 故障排除
 
 ### 问题: "command not found: ffmpeg"
 
@@ -188,24 +100,3 @@ brew install ffmpeg exiftool
 - [ ] 两个文件名称相同（除扩展名）
 - [ ] 文件没有被重命名或分开传输
 - [ ] iPhone 运行 iOS 9 或更高版本
-
----
-
-### Issue: "command not found: ffmpeg"
-
-**Solution:**
-```bash
-brew install ffmpeg exiftool
-```
-
-### Issue: HEIC Conversion Fails
-
-**Solution:** Ensure you're using macOS. HEIC encoding requires Apple's hardware acceleration support.
-
-### Issue: Not Recognized as Live Photo After Import
-
-**Checklist:**
-- [ ] Both .HEIC and .MOV files were transferred together
-- [ ] Both files have the same name (except extension)
-- [ ] Files weren't renamed or transferred separately
-- [ ] iPhone is running iOS 9 or higher
