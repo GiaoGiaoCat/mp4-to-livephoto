@@ -169,7 +169,9 @@ print_info "Converting to HEIC format..."
 OUTPUT_HEIC="$OUTPUT_DIR/${OUTPUT_NAME}.HEIC"
 
 # Use ffmpeg to convert to HEIC with high quality
-ffmpeg -i "$TEMP_JPG" -c:v hevc_videotoolbox -q:v $((100 - HEIC_QUALITY)) -tag:v hvc1 "$OUTPUT_HEIC" -y &> /dev/null
+# Note: for hevc_videotoolbox, lower q:v values mean higher quality
+FFMPEG_QUALITY=$((100 - HEIC_QUALITY))
+ffmpeg -i "$TEMP_JPG" -c:v hevc_videotoolbox -q:v $FFMPEG_QUALITY -tag:v hvc1 "$OUTPUT_HEIC" -y &> /dev/null
 
 if [ ! -f "$OUTPUT_HEIC" ]; then
     print_error "Failed to convert to HEIC format"
@@ -205,8 +207,7 @@ exiftool -overwrite_original \
     "$OUTPUT_MOV" &> /dev/null
 
 # Set file creation and modification times to be the same
-TIMESTAMP=$(date +%Y%m%d%H%M.%S)
-touch -t $(date -j -f "%Y%m%d%H%M.%S" "$TIMESTAMP" +%Y%m%d%H%M.%S) "$OUTPUT_HEIC" "$OUTPUT_MOV" 2>/dev/null || true
+touch "$OUTPUT_HEIC" "$OUTPUT_MOV" 2>/dev/null || true
 
 print_info "Success! Live Photo created:"
 echo "  Image: $OUTPUT_HEIC"

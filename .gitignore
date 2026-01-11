@@ -4,7 +4,6 @@ LivePhotos/
 # Temporary files
 *.tmp
 *.temp
-.DS_Store
 
 # Test files
 *.mp4
